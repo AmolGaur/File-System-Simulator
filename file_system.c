@@ -29,15 +29,19 @@ typedef struct {
     Directory *current_dir;  // current directory the user is in
 } FileSystem;
 
+// Main function to initialize file system and start CLI
 int main() {
-    // Setting up file system with root directory
-    FileSystem fs;
-    fs.root = (Directory *)malloc(sizeof(Directory));
-    strncpy(fs.root->name, "/", MAX_NAME_LENGTH);
-    fs.root->parent = NULL;
-    fs.root->num_subdirs = 0;
-    fs.root->num_files = 0;
-    fs.current_dir = fs.root;
+    FileSystem *fs = (FileSystem *)malloc(sizeof(FileSystem));
+    fs->root = (Directory *)malloc(sizeof(Directory));
+    strncpy(fs->root->name, "/", MAX_NAME_LENGTH);
+    fs->root->parent = NULL;
+    fs->root->num_subdirs = 0;
+    fs->root->num_files = 0;
+
+    fs->current_dir = fs->root;
+    load_filesystem(fs);
+
+    run_cli(fs);
 
     return 0;
 }
