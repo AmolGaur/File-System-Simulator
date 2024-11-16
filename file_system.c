@@ -48,6 +48,77 @@ void change_directory(FileSystem *fs, const char *dirname);
 void list_directory(FileSystem *fs);
 void print_help();
 
+// Recursive Function to save data in filesystem_data.txt
+void save_directory(FILE *file, Directory *dir) {
+
+    if (dir->parent == NULL) {
+        fprintf(file, "DIR /\n");
+    } else {
+        fprintf(file, "DIR %s %d\n", dir->name, dir->num_files);
+    }
+
+    for (int i = 0; i < dir->num_files; i++) {
+        fprintf(file, "FILE %s %d %s\n", dir->files[i]->name, dir->files[i]->size, dir->files[i]->data);
+    }
+    for (int i = 0; i < dir->num_subdirs; i++) {
+        save_directory(file, dir->subdirs[i]);
+    }
+    fprintf(file, "ENDDIR\n");
+}
+
+// Function to save file structure
+void save_filesystem(FileSystem *fs) {
+    FILE *file = fopen(SAVE_FILE, "w");
+    if (!file) {
+        printf(ERROR_COLOR "Error saving filesystem data.\n" RESET_COLOR);
+        return;
+    }
+    save_directory(file, fs->root);
+    fclose(file);
+}
+
+// Function to read filesystem_data.txt
+Directory *load_directory(FILE *file, Directory *parent) {
+    Directory *dir = (Directory *)malloc(sizeof(Directory));
+    dir->parent = parent;
+    dir->num_files = 0;
+    dir->num_subdirs = 0;
+
+    fscanf(file, " %s", dir->name);
+
+    while (1) {
+        char type[10];
+        fscanf(file, " %s", type);
+
+        if (strcmp(type, "FILE") == 0) {
+            File *new_file = (File *)malloc(sizeof(File));
+            fscanf(file, "%s %d", new_file->name, &new_file->size);
+            new_file->data = (char *)malloc(new_file->size + 1);
+            fscanf(file, " %[^\n]", new_file->data);
+            dir->files[dir->num_files++] = new_file;
+        } else if (strcmp(type, "DIR") == 0) {
+            Directory *subdir = load_directory(file, dir);
+            dir->subdirs[dir->num_subdirs++] = subdir;
+        } else if (strcmp(type, "ENDDIR") == 0) {
+            break;
+        }
+    }
+
+    return dir;
+}
+
+// Function to load the file structure
+void load_filesystem(FileSystem *fs) {
+    FILE *file = fopen(SAVE_FILE, "r");
+    if (!file) {
+        printf(PROMPT_COLOR "No previous filesystem data found. Starting fresh.\n" RESET_COLOR);
+        return;
+    }
+    fs->root = load_directory(file, NULL);
+    fs->current_dir = fs->root;
+    fclose(file);
+}
+
 // Function to create a file
 void create_file(FileSystem *fs, const char *filename) {
     Directory *current = fs->current_dir;
