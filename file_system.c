@@ -118,6 +118,49 @@ void write_file(FileSystem *fs, const char *filename, const char *data) {
     printf(ERROR_COLOR "File not found.\n" RESET_COLOR);
 }
 
+// Command-Line Interface (CLI)
+void run_cli(FileSystem *fs) {
+    char command[MAX_NAME_LENGTH];
+    char arg1[MAX_NAME_LENGTH];
+    char arg2[MAX_NAME_LENGTH];
+    char current_path[MAX_NAME_LENGTH * 10];
+
+    while (1) {
+        build_path(fs->current_dir, current_path);
+        printf(PROMPT_COLOR "%s> " RESET_COLOR, current_path);
+        fgets(command, sizeof(command), stdin);
+        command[strcspn(command, "\n")] = 0;
+
+        if (sscanf(command, "create %s", arg1) == 1) {
+            create_file(fs, arg1);
+        } else if (sscanf(command, "delete %s", arg1) == 1) {
+            delete_file(fs, arg1);
+        } else if (sscanf(command, "read %s", arg1) == 1) {
+            read_file(fs, arg1);
+        } else if (sscanf(command, "write %s %[^\n]", arg1, arg2) == 2) {
+            write_file(fs, arg1, arg2);
+        } else if (sscanf(command, "mkdir %s", arg1) == 1) {
+            create_directory(fs, arg1);
+        } else if (sscanf(command, "rmdir %s", arg1) == 1) {
+            remove_directory(fs, arg1);
+        } else if (strcmp(command, "ls") == 0) {
+            list_directory(fs);
+        } else if (sscanf(command, "cd %s", arg1) == 1) {
+            change_directory(fs, arg1);
+        } else if (strcmp(command, "tree") == 0) {
+            print_tree(fs->root, 0);
+        } else if (strcmp(command, "help") == 0) {
+            print_help();
+        } else if (strcmp(command, "exit") == 0) {
+            save_filesystem(fs);
+            break;
+        } else {
+            printf(ERROR_COLOR "Unknown command.\n" RESET_COLOR);
+            printf("Type 'help' for a list of commands.\n");
+        }
+    }
+}
+
 // Main function to initialize file system and start CLI
 int main() {
     FileSystem *fs = (FileSystem *)malloc(sizeof(FileSystem));
