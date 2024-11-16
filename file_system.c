@@ -48,6 +48,27 @@ void change_directory(FileSystem *fs, const char *dirname);
 void list_directory(FileSystem *fs);
 void print_help();
 
+// Function to create a file
+void create_file(FileSystem *fs, const char *filename) {
+    Directory *current = fs->current_dir;
+    if (current->num_files >= MAX_FILES) {
+        printf(ERROR_COLOR "Directory is full!\n" RESET_COLOR);
+        return;
+    }
+    for (int i = 0; i < current->num_files; i++) {
+        if (strcmp(current->files[i]->name, filename) == 0) {
+            printf(ERROR_COLOR "File already exists.\n" RESET_COLOR);
+            return;
+        }
+    }
+    File *new_file = (File *)malloc(sizeof(File));
+    strncpy(new_file->name, filename, MAX_NAME_LENGTH);
+    new_file->data = NULL;
+    new_file->size = 0;
+    current->files[current->num_files++] = new_file;
+    printf(SUCCESS_COLOR "File %s created successfully.\n" RESET_COLOR, filename);
+}
+
 // Function to read a file
 void read_file(FileSystem *fs, const char *filename) {
     Directory *current = fs->current_dir;
