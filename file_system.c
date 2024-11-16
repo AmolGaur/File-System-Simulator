@@ -194,6 +194,39 @@ void write_file(FileSystem *fs, const char *filename, const char *data) {
     printf(ERROR_COLOR "File not found.\n" RESET_COLOR);
 }
 
+
+// Function to change directory
+void change_directory(FileSystem *fs, const char *dirname) {
+    Directory *current = fs->current_dir;
+    if (strcmp(dirname, "..") == 0 && current->parent != NULL) {
+        fs->current_dir = current->parent;
+        printf(SUCCESS_COLOR "Moved to parent directory.\n" RESET_COLOR);
+    } else {
+        for (int i = 0; i < current->num_subdirs; i++) {
+            if (strcmp(current->subdirs[i]->name, dirname) == 0) {
+                fs->current_dir = current->subdirs[i];
+                printf(SUCCESS_COLOR "Moved to directory %s.\n" RESET_COLOR, dirname);
+                return;
+            }
+        }
+        printf(ERROR_COLOR "Directory not found.\n" RESET_COLOR);
+    }
+}
+
+// Function to list directory 
+void list_directory(FileSystem *fs) {
+    Directory *current = fs->current_dir;
+    printf("Listing contents of %s:\n", current->name);
+    for (int i = 0; i < current->num_subdirs; i++) {
+        printf("  [DIR] %s\n", current->subdirs[i]->name);
+    }
+    for (int i = 0; i < current->num_files; i++) {
+        printf("  %s\n", current->files[i]->name);
+    }
+}
+
+
+
 // Command-Line Interface (CLI)
 void run_cli(FileSystem *fs) {
     char command[MAX_NAME_LENGTH];
@@ -236,6 +269,7 @@ void run_cli(FileSystem *fs) {
         }
     }
 }
+
 
 // Main function to initialize file system and start CLI
 int main() {
