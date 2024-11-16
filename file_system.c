@@ -36,9 +36,13 @@ typedef struct {
 } FileSystem;
 
 // Function Headers
+void save_directory(FILE *file, Directory *dir);
 void save_filesystem(FileSystem *fs);
+Directory *load_directory(FILE *file, Directory *parent);
 void load_filesystem(FileSystem *fs);
 void create_directory(FileSystem *fs, const char *dirname);
+void delete_directory(Directory *dir);
+void remove_directory(FileSystem *fs, const char *dirname);
 void create_file(FileSystem *fs, const char *filename);
 void write_file(FileSystem *fs, const char *filename, const char *data);
 void print_tree(Directory *dir, int depth);
@@ -47,6 +51,7 @@ void read_file(FileSystem *fs, const char *filename);
 void change_directory(FileSystem *fs, const char *dirname);
 void list_directory(FileSystem *fs);
 void print_help();
+void build_path(Directory *dir, char *path);
 
 // Recursive Function to save data in filesystem_data.txt
 void save_directory(FILE *file, Directory *dir) {
