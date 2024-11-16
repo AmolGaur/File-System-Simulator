@@ -69,6 +69,24 @@ void create_file(FileSystem *fs, const char *filename) {
     printf(SUCCESS_COLOR "File %s created successfully.\n" RESET_COLOR, filename);
 }
 
+// Function to delete a file
+void delete_file(FileSystem *fs, const char *filename) {
+    Directory *current = fs->current_dir;
+    for (int i = 0; i < current->num_files; i++) {
+        if (strcmp(current->files[i]->name, filename) == 0) {
+            free(current->files[i]->data);
+            free(current->files[i]);
+            for (int j = i; j < current->num_files - 1; j++) {
+                current->files[j] = current->files[j + 1];
+            }
+            current->num_files--;
+            printf(SUCCESS_COLOR "File %s deleted successfully.\n" RESET_COLOR, filename);
+            return;
+        }
+    }
+    printf(ERROR_COLOR "File not found.\n" RESET_COLOR);
+}
+
 // Function to read a file
 void read_file(FileSystem *fs, const char *filename) {
     Directory *current = fs->current_dir;
