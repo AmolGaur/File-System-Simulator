@@ -36,9 +36,13 @@ typedef struct {
 } FileSystem;
 
 // Function Headers
+void save_directory(FILE *file, Directory *dir);
 void save_filesystem(FileSystem *fs);
+Directory *load_directory(FILE *file, Directory *parent);
 void load_filesystem(FileSystem *fs);
 void create_directory(FileSystem *fs, const char *dirname);
+void delete_directory(Directory *dir);
+void remove_directory(FileSystem *fs, const char *dirname);
 void create_file(FileSystem *fs, const char *filename);
 void write_file(FileSystem *fs, const char *filename, const char *data);
 void print_tree(Directory *dir, int depth);
@@ -47,6 +51,78 @@ void read_file(FileSystem *fs, const char *filename);
 void change_directory(FileSystem *fs, const char *dirname);
 void list_directory(FileSystem *fs);
 void print_help();
+void build_path(Directory *dir, char *path);
+
+// Recursive Function to save data in filesystem_data.txt
+void save_directory(FILE *file, Directory *dir) {
+
+    if (dir->parent == NULL) {
+        fprintf(file, "DIR /\n");
+    } else {
+        fprintf(file, "DIR %s %d\n", dir->name, dir->num_files);
+    }
+
+    for (int i = 0; i < dir->num_files; i++) {
+        fprintf(file, "FILE %s %d %s\n", dir->files[i]->name, dir->files[i]->size, dir->files[i]->data);
+    }
+    for (int i = 0; i < dir->num_subdirs; i++) {
+        save_directory(file, dir->subdirs[i]);
+    }
+    fprintf(file, "ENDDIR\n");
+}
+
+// Function to save file structure
+void save_filesystem(FileSystem *fs) {
+    FILE *file = fopen(SAVE_FILE, "w");
+    if (!file) {
+        printf(ERROR_COLOR "Error saving filesystem data.\n" RESET_COLOR);
+        return;
+    }
+    save_directory(file, fs->root);
+    fclose(file);
+}
+
+// Function to read filesystem_data.txt
+Directory *load_directory(FILE *file, Directory *parent) {
+    Directory *dir = (Directory *)malloc(sizeof(Directory));
+    dir->parent = parent;
+    dir->num_files = 0;
+    dir->num_subdirs = 0;
+
+    fscanf(file, " %s", dir->name);
+
+    while (1) {
+        char type[10];
+        fscanf(file, " %s", type);
+
+        if (strcmp(type, "FILE") == 0) {
+            File *new_file = (File *)malloc(sizeof(File));
+            fscanf(file, "%s %d", new_file->name, &new_file->size);
+            new_file->data = (char *)malloc(new_file->size + 1);
+            fscanf(file, " %[^\n]", new_file->data);
+            dir->files[dir->num_files++] = new_file;
+        } else if (strcmp(type, "DIR") == 0) {
+            Directory *subdir = load_directory(file, dir);
+            dir->subdirs[dir->num_subdirs++] = subdir;
+        } else if (strcmp(type, "ENDDIR") == 0) {
+            break;
+        }
+    }
+
+    return dir;
+}
+
+// Function to load the file structure
+void load_filesystem(FileSystem *fs) {
+    FILE *file = fopen(SAVE_FILE, "r");
+    if (!file) {
+        printf(PROMPT_COLOR "No previous filesystem data found. Starting fresh.\n" RESET_COLOR);
+        return;
+    }
+    fs->root = load_directory(file, NULL);
+    fs->current_dir = fs->root;
+    fclose(file);
+}
 
 // Function to create a file
 void create_file(FileSystem *fs, const char *filename) {
@@ -118,6 +194,7 @@ void write_file(FileSystem *fs, const char *filename, const char *data) {
     printf(ERROR_COLOR "File not found.\n" RESET_COLOR);
 }
 
+
 // Function to change directory
 void change_directory(FileSystem *fs, const char *dirname) {
     Directory *current = fs->current_dir;
@@ -145,6 +222,51 @@ void list_directory(FileSystem *fs) {
     }
     for (int i = 0; i < current->num_files; i++) {
         printf("  %s\n", current->files[i]->name);
+    }
+}
+
+
+
+// Command-Line Interface (CLI)
+void run_cli(FileSystem *fs) {
+    char command[MAX_NAME_LENGTH];
+    char arg1[MAX_NAME_LENGTH];
+    char arg2[MAX_NAME_LENGTH];
+    char current_path[MAX_NAME_LENGTH * 10];
+
+    while (1) {
+        build_path(fs->current_dir, current_path);
+        printf(PROMPT_COLOR "%s> " RESET_COLOR, current_path);
+        fgets(command, sizeof(command), stdin);
+        command[strcspn(command, "\n")] = 0;
+
+        if (sscanf(command, "create %s", arg1) == 1) {
+            create_file(fs, arg1);
+        } else if (sscanf(command, "delete %s", arg1) == 1) {
+            delete_file(fs, arg1);
+        } else if (sscanf(command, "read %s", arg1) == 1) {
+            read_file(fs, arg1);
+        } else if (sscanf(command, "write %s %[^\n]", arg1, arg2) == 2) {
+            write_file(fs, arg1, arg2);
+        } else if (sscanf(command, "mkdir %s", arg1) == 1) {
+            create_directory(fs, arg1);
+        } else if (sscanf(command, "rmdir %s", arg1) == 1) {
+            remove_directory(fs, arg1);
+        } else if (strcmp(command, "ls") == 0) {
+            list_directory(fs);
+        } else if (sscanf(command, "cd %s", arg1) == 1) {
+            change_directory(fs, arg1);
+        } else if (strcmp(command, "tree") == 0) {
+            print_tree(fs->root, 0);
+        } else if (strcmp(command, "help") == 0) {
+            print_help();
+        } else if (strcmp(command, "exit") == 0) {
+            save_filesystem(fs);
+            break;
+        } else {
+            printf(ERROR_COLOR "Unknown command.\n" RESET_COLOR);
+            printf("Type 'help' for a list of commands.\n");
+        }
     }
 }
 
