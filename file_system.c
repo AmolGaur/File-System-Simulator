@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <direct.h>     
+#include <unistd.h>      
 
 #define MAX_NAME_LENGTH 100
 #define MAX_FILES 100
@@ -15,43 +17,52 @@
 // File structure
 typedef struct {
     char name[MAX_NAME_LENGTH];
-    char *data;       // file data
-    int size;         // size of the data
+    char *data;
+    int size;
 } File;
 
 // Directory structure
 typedef struct Directory {
     char name[MAX_NAME_LENGTH];
-    struct Directory *parent; // parent directory
-    struct Directory *subdirs[MAX_DIRS]; // subdirectories
-    File *files[MAX_FILES];    // files in the directory
+    struct Directory *parent;
+    struct Directory *subdirs[MAX_DIRS];
+    File *files[MAX_FILES];
     int num_subdirs;
     int num_files;
 } Directory;
 
 // FileSystem structure
 typedef struct {
-    Directory *root;         // root directory
-    Directory *current_dir;  // current directory the user is in
+    Directory *root;
+    Directory *current_dir;
 } FileSystem;
 
-// Function Headers
-void save_directory(FILE *file, Directory *dir);
-void save_filesystem(FileSystem *fs);
-Directory *load_directory(FILE *file, Directory *parent);
-void load_filesystem(FileSystem *fs);
-void create_directory(FileSystem *fs, const char *dirname);
-void delete_directory(Directory *dir);
-void remove_directory(FileSystem *fs, const char *dirname);
-void create_file(FileSystem *fs, const char *filename);
-void write_file(FileSystem *fs, const char *filename, const char *data);
-void print_tree(Directory *dir, int depth);
-void delete_file(FileSystem *fs, const char *filename);
-void read_file(FileSystem *fs, const char *filename);
-void change_directory(FileSystem *fs, const char *dirname);
-void list_directory(FileSystem *fs);
-void print_help();
-void build_path(Directory *dir, char *path);
+// Function to get current path
+void build_path(Directory *dir, char *path) {
+    if (dir->parent == NULL) {  
+        strcpy(path, "/");
+        return;
+    }
+
+    // Recuresion
+    build_path(dir->parent, path);
+
+    if (strcmp(path, "/") != 0) {  
+        strcat(path, "/");
+    }
+    strcat(path, dir->name);
+}
+
+// Function to get file path from local subsystem
+void generate_file_path(Directory *dir, const char *filename, char *path, size_t path_size) {
+    if (dir->parent == NULL) {
+        snprintf(path, path_size, "./%s", filename);
+    } else {
+        char parent_path[MAX_NAME_LENGTH * 2] = "";
+        generate_file_path(dir->parent, dir->name, parent_path, sizeof(parent_path));
+        snprintf(path, path_size, "%s/%s", parent_path, filename);
+    }
+}
 
 // Recursive Function to save data in filesystem_data.txt
 void save_directory(FILE *file, Directory *dir) {
@@ -124,6 +135,99 @@ void load_filesystem(FileSystem *fs) {
     fclose(file);
 }
 
+// Function to create a new directory
+void create_directory(FileSystem *fs, const char *dirname) {
+    Directory *current = fs->current_dir;
+    if (current->num_subdirs >= MAX_DIRS) {
+        printf(ERROR_COLOR "Max subdirectories limit reached.\n" RESET_COLOR);
+        return;
+    }
+    for (int i = 0; i < current->num_subdirs; i++) {
+        if (strcmp(current->subdirs[i]->name, dirname) == 0) {
+            printf(ERROR_COLOR "Directory already exists.\n" RESET_COLOR);
+            return;
+        }
+    }
+
+    Directory *new_dir = (Directory *)malloc(sizeof(Directory));
+    strncpy(new_dir->name, dirname, MAX_NAME_LENGTH);
+    new_dir->parent = current;
+    new_dir->num_subdirs = 0;
+    new_dir->num_files = 0;
+    current->subdirs[current->num_subdirs++] = new_dir;
+
+    // Create the directory on the system
+    char path[MAX_NAME_LENGTH * 2] = "";
+    if (current->parent == NULL) {
+        // Root directory case
+        snprintf(path, sizeof(path), "./%s", dirname);
+    } else {
+        snprintf(path, sizeof(path), "./%s/%s", current->name, dirname);
+    }
+
+    if (_mkdir(path) == 0) { // Use _mkdir() on Windows
+        printf(SUCCESS_COLOR "Directory %s created successfully on system.\n" RESET_COLOR, path);
+    } else {
+        printf(ERROR_COLOR "Error creating directory on system" RESET_COLOR);
+    }
+}
+
+// Function to delete contents of directory (subdirectories and files) and deallocate the space
+void delete_directory(Directory *dir) {
+    char path[MAX_NAME_LENGTH * 2] = "";
+    generate_file_path(dir->parent, dir->name, path, sizeof(path));
+
+    for (int i = 0; i < dir->num_files; i++) {
+        char file_path[MAX_NAME_LENGTH * 3] = "";
+        snprintf(file_path, sizeof(file_path), "%s/%s", path, dir->files[i]->name);
+
+        free(dir->files[i]->data);
+        free(dir->files[i]);
+
+        if (remove(file_path) == 0) {
+            printf(SUCCESS_COLOR "Deleted file %s from system.\n" RESET_COLOR, file_path);
+        } else {
+            printf(ERROR_COLOR "Error deleting file %s from system.\n" RESET_COLOR, file_path);
+        }
+    }
+
+    for (int i = 0; i < dir->num_subdirs; i++) {
+        delete_directory(dir->subdirs[i]);
+    }
+
+    free(dir); 
+}
+
+// Function to delete a directory from current directory based on commands
+void remove_directory(FileSystem *fs, const char *dirname) {
+    Directory *current = fs->current_dir;
+    for (int i = 0; i < current->num_subdirs; i++) {
+        if (strcmp(current->subdirs[i]->name, dirname) == 0) {
+            delete_directory(current->subdirs[i]);
+
+            for (int j = i; j < current->num_subdirs - 1; j++) {
+                current->subdirs[j] = current->subdirs[j + 1];
+            }
+            current->num_subdirs--;
+
+            char path[MAX_NAME_LENGTH * 2] = "";
+            if (current->parent == NULL) {
+                snprintf(path, sizeof(path), "./%s", dirname);
+            } else {
+                snprintf(path, sizeof(path), "./%s/%s", current->name, dirname);
+            }
+
+            if (_rmdir(path) == 0) {
+                printf(SUCCESS_COLOR "Directory %s removed successfully from system.\n" RESET_COLOR, path);
+            } else {
+                printf(ERROR_COLOR "Error removing directory from system" RESET_COLOR);
+            }
+            return;
+        }
+    }
+    printf(ERROR_COLOR "Directory not found.\n" RESET_COLOR);
+}
+
 // Function to create a file
 void create_file(FileSystem *fs, const char *filename) {
     Directory *current = fs->current_dir;
@@ -142,7 +246,19 @@ void create_file(FileSystem *fs, const char *filename) {
     new_file->data = NULL;
     new_file->size = 0;
     current->files[current->num_files++] = new_file;
-    printf(SUCCESS_COLOR "File %s created successfully.\n" RESET_COLOR, filename);
+
+    // Generate the full path for the file
+    char path[MAX_NAME_LENGTH * 2] = "";
+    generate_file_path(current, filename, path, sizeof(path));
+
+    // Write an empty file to the actual filesystem
+    FILE *fp = fopen(path, "w");
+    if (fp) {
+        fclose(fp);
+        printf(SUCCESS_COLOR "File %s created successfully on disk.\n" RESET_COLOR, filename);
+    } else {
+        printf(ERROR_COLOR "Error creating file on disk.\n" RESET_COLOR);
+    }
 }
 
 // Function to delete a file
@@ -152,26 +268,52 @@ void delete_file(FileSystem *fs, const char *filename) {
         if (strcmp(current->files[i]->name, filename) == 0) {
             free(current->files[i]->data);
             free(current->files[i]);
+
+            // Shift remaining files
             for (int j = i; j < current->num_files - 1; j++) {
                 current->files[j] = current->files[j + 1];
             }
             current->num_files--;
-            printf(SUCCESS_COLOR "File %s deleted successfully.\n" RESET_COLOR, filename);
+
+            // Generate the full path for the file
+            char path[MAX_NAME_LENGTH * 2] = "";
+            generate_file_path(current, filename, path, sizeof(path));
+
+            // Remove the file from the actual filesystem
+            if (remove(path) == 0) {
+                printf(SUCCESS_COLOR "File %s deleted successfully from system and memory.\n" RESET_COLOR, path);
+            } else {
+                printf(ERROR_COLOR "Error deleting file from system.\n" RESET_COLOR);
+            }
             return;
+
         }
     }
     printf(ERROR_COLOR "File not found.\n" RESET_COLOR);
 }
+
 
 // Function to read a file
 void read_file(FileSystem *fs, const char *filename) {
     Directory *current = fs->current_dir;
     for (int i = 0; i < current->num_files; i++) {
         if (strcmp(current->files[i]->name, filename) == 0) {
-            if (current->files[i]->data != NULL) {
-                printf("Reading file %s:\n%s\n", filename, current->files[i]->data);
+            // Read data from the actual file on disk
+
+            char path[MAX_NAME_LENGTH * 2] = "";
+            generate_file_path(current, filename, path, sizeof(path));
+
+            FILE *fp = fopen(path, "r");
+            if (fp) {
+                printf("Reading file %s:\n", filename);
+                char ch;
+                while ((ch = fgetc(fp)) != EOF) {
+                    putchar(ch);
+                }
+                fclose(fp);
+                printf("\n");
             } else {
-                printf("File is empty.\n");
+                printf(ERROR_COLOR "Error reading file on disk.\n" RESET_COLOR);
             }
             return;
         }
@@ -179,15 +321,29 @@ void read_file(FileSystem *fs, const char *filename) {
     printf(ERROR_COLOR "File not found.\n" RESET_COLOR);
 }
 
+
 // Function to write data to a file
 void write_file(FileSystem *fs, const char *filename, const char *data) {
     Directory *current = fs->current_dir;
     for (int i = 0; i < current->num_files; i++) {
         if (strcmp(current->files[i]->name, filename) == 0) {
+            // Save data in memory
             current->files[i]->data = (char *)malloc(strlen(data) + 1);
             strcpy(current->files[i]->data, data);
             current->files[i]->size = strlen(data);
-            printf(SUCCESS_COLOR "Data written to %s.\n" RESET_COLOR, filename);
+
+            char path[MAX_NAME_LENGTH * 2] = "";
+            generate_file_path(current, filename, path, sizeof(path));
+
+            // Save data to actual file on disk
+            FILE *fp = fopen(path, "w");
+            if (fp) {
+                fprintf(fp, "%s", data);
+                fclose(fp);
+                printf(SUCCESS_COLOR "Data written to %s on disk.\n" RESET_COLOR, filename);
+            } else {
+                printf(ERROR_COLOR "Error writing data to file on disk.\n" RESET_COLOR);
+            }
             return;
         }
     }
@@ -213,7 +369,7 @@ void change_directory(FileSystem *fs, const char *dirname) {
     }
 }
 
-// Function to list directory 
+// Function to list directory contents
 void list_directory(FileSystem *fs) {
     Directory *current = fs->current_dir;
     printf("Listing contents of %s:\n", current->name);
@@ -225,7 +381,40 @@ void list_directory(FileSystem *fs) {
     }
 }
 
+// Function to print directory structure as a tree
+void print_tree(Directory *dir, int depth) {
+    for (int i = 0; i < depth; i++) {
+        printf("  ");
+    }
+    printf("%s/\n", dir->name);
 
+    for (int i = 0; i < dir->num_files; i++) {
+        for (int j = 0; j < depth + 1; j++) {
+            printf("  ");
+        }
+        printf("%s\n", dir->files[i]->name);
+    }
+
+    for (int i = 0; i < dir->num_subdirs; i++) {
+        print_tree(dir->subdirs[i], depth + 1);
+    }
+}
+
+// Function to print available commands
+void print_help() {
+    printf("Available Commands:\n");
+    printf(SUCCESS_COLOR " - create <filename>    : Create a new file\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - delete <filename>    : Delete an existing file\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - read <filename>      : Read data from a file\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - write <filename> <data> : Write data to a file\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - mkdir <dirname>      : Create a new directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - rmdir <dirname>      : remove an existing directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - ls                   : List contents of the current directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - cd <dirname>         : Change directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - cd ..                : Go to parent directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - tree                 : Display directory structure\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - exit                 : Exit the program\n" RESET_COLOR);
+}
 
 // Command-Line Interface (CLI)
 void run_cli(FileSystem *fs) {
@@ -269,7 +458,6 @@ void run_cli(FileSystem *fs) {
         }
     }
 }
-
 
 // Main function to initialize file system and start CLI
 int main() {
