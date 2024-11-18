@@ -19,7 +19,7 @@ This **File System Simulator** is a C-based project that mimics a basic file sys
 | Command                     | Description                          | Example Usage                         |  
 |-----------------------------|--------------------------------------|---------------------------------------|  
 | `create <file_name>`        | Creates a new file.                  | `create report.txt`                   |  
-| `write <file_name>`<text>         | Writes data into a file.             | `write report.txt "Writing into file"`                    |  
+| `write <file_name> <text>`         | Writes data into a file.             | `write report.txt "Writing into file"`                    |  
 | `read <file_name>`          | Reads and displays file content.     | `read report.txt`                     |  
 | `delete <file_name>`        | Deletes a specified file.            | `delete report.txt`                   |  
 
