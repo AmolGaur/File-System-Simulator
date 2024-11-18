@@ -24,10 +24,10 @@ This **File System Simulator** is a C-based project that mimics a basic file sys
 | `delete <file_name>`        | Deletes a specified file.            | `delete report.txt`                   |  
 
 ### **System Commands**  
-| Command               | Description                          | Example Usage                         |  
+| Command               | Description                                          | Example Usage                         |  
 |-----------------------|--------------------------------------|---------------------------------------|  
-| `save`                | Saves the current file system state. | `save`                                |  
-| `load`                | Loads the saved file system state.   | `load`                                |  
+| `tree`                | Shows the file-directory structure in terms of a tree| `tree`                                |  
+| `help`                | Gives the list of available commands | `help`                                |  
 | `exit`                | Exits the simulator.                 | `exit`                                |  
 
 ---
@@ -42,4 +42,5 @@ This **File System Simulator** is a C-based project that mimics a basic file sys
 ## **How to Run**  
 1. **Compile the Program**:  
    ```bash  
-   gcc -o filesystem_simulator filesystem_simulator.c  
+   gcc -o filesystem_simulator filesystem_simulator.c
+   
