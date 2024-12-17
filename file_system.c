@@ -195,6 +195,12 @@ void delete_directory(Directory *dir) {
         delete_directory(dir->subdirs[i]);
     }
 
+    if (rmdir(path) == 0) {
+        printf(SUCCESS_COLOR "Deleted directory %s from system.\n" RESET_COLOR, path);
+    } else {
+        printf(ERROR_COLOR "Error deleting directory %s from system.\n" RESET_COLOR, path);
+    }
+
     free(dir); 
 }
 
@@ -210,18 +216,6 @@ void remove_directory(FileSystem *fs, const char *dirname) {
             }
             current->num_subdirs--;
 
-            char path[MAX_NAME_LENGTH * 2] = "";
-            if (current->parent == NULL) {
-                snprintf(path, sizeof(path), "./%s", dirname);
-            } else {
-                snprintf(path, sizeof(path), "./%s/%s", current->name, dirname);
-            }
-
-            if (_rmdir(path) == 0) {
-                printf(SUCCESS_COLOR "Directory %s removed successfully from system.\n" RESET_COLOR, path);
-            } else {
-                printf(ERROR_COLOR "Error removing directory from system" RESET_COLOR);
-            }
             return;
         }
     }
@@ -403,17 +397,17 @@ void print_tree(Directory *dir, int depth) {
 // Function to print available commands
 void print_help() {
     printf("Available Commands:\n");
-    printf(SUCCESS_COLOR " - create <filename>    : Create a new file\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - delete <filename>    : Delete an existing file\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - read <filename>      : Read data from a file\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - create <filename>       : Create a new file\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - delete <filename>       : Delete an existing file\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - read <filename>         : Read data from a file\n" RESET_COLOR);
     printf(SUCCESS_COLOR " - write <filename> <data> : Write data to a file\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - mkdir <dirname>      : Create a new directory\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - rmdir <dirname>      : remove an existing directory\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - ls                   : List contents of the current directory\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - cd <dirname>         : Change directory\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - cd ..                : Go to parent directory\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - tree                 : Display directory structure\n" RESET_COLOR);
-    printf(SUCCESS_COLOR " - exit                 : Exit the program\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - mkdir <dirname>         : Create a new directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - rmdir <dirname>         : remove an existing directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - ls                      : List contents of the current directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - cd <dirname>            : Change directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - cd ..                   : Go to parent directory\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - tree                    : Display directory structure\n" RESET_COLOR);
+    printf(SUCCESS_COLOR " - exit                    : Exit the program\n" RESET_COLOR);
 }
 
 // Command-Line Interface (CLI)
